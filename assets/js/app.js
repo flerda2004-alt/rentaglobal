@@ -407,20 +407,22 @@ function listaMercado(panel) {
 // Solo especies en pesos: fuera las de dólar MEP (terminan en D) y cable (C), incluidas las de sufijo con punto (BMA.D).
 // Una especie en dólares vale entre 400 y 6.000 veces menos que su par en pesos, que empieza igual (AAL / AALD, TGSU2 / TGSUD).
 const enPesosMemo = new WeakMap();
-function enPesos(crudo) {
+function enPesos(crudo, panel) {
   if (enPesosMemo.has(crudo)) return enPesosMemo.get(crudo);
   const conPrecio = crudo.filter((x) => x.c > 0 && x.symbol);
   const res = conPrecio.filter((x) => {
-    if (/\.[A-Z]$/.test(x.symbol)) return false;
-    if (!/[CD]$/.test(x.symbol)) return true;
-    const pref = x.symbol.slice(0, 3);
-    return !conPrecio.some((y) => y !== x && y.symbol.startsWith(pref) && y.c / x.c > 400 && y.c / x.c < 6000);
+    const s = x.symbol;
+    if (/\.[A-Z]$/.test(s)) return false;
+    if (panel === "cedears" && x.c < 100) return false; // ningún CEDEAR en pesos vale menos de $100
+    if (!/[CD]$/.test(s)) return true;
+    const prefijos = [s.slice(0, -1), s.slice(0, 3)].filter((p) => p.length >= 1);
+    return !conPrecio.some((y) => y !== x && prefijos.some((p) => y.symbol.startsWith(p)) && y.c / x.c > 400 && y.c / x.c < 6000);
   });
   enPesosMemo.set(crudo, res);
   return res;
 }
 function moversDe(panel) {
-  const lista = enPesos(listaMercado(panel))
+  const lista = enPesos(listaMercado(panel), panel)
     .map((x) => ({ s: x.symbol, c: x.c, p: x.pct_change, v: x.v || 0, q: x.q_op || 0 }))
     .filter((x) => x.p != null && isFinite(x.p));
   // para subas y bajas se exige un mínimo de operaciones: evita papeles sin liquidez con saltos falsos
