@@ -70,9 +70,11 @@ function itemsCinta() {
   if (rp) it.push(["Riesgo país", num(rp.valor, 0) + " pb", null]);
   const b = ultimoBandas();
   if (b?.techo) it.push(["Techo de la banda", pesos(b.techo, 2), null]);
+  // money market: TNA del último día (como lo informa Cocos); el resto, TNA de 30 días (la diaria es muy volátil)
   for (const f of fondos().filter((x) => x.gestora === "Cocos" && x.moneda === "ARS")) {
-    const r = f.rend?.d1;
-    if (r) it.push([`${f.nombre} · TNA`, pct(r.tna, 2), null]);
+    const mm = f.tipo === "Money market";
+    const r = mm ? f.rend?.d1 : f.rend?.d30;
+    if (r) it.push([`${f.nombre} · TNA${mm ? "" : " 30 días"}`, pct(r.tna, 2), null]);
   }
   const m = moversDe("cedears");
   for (const x of [...m.suben.slice(0, 3), ...m.bajan.slice(0, 3)]) it.push([x.s, precio(x.c), x.p]);
