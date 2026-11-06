@@ -66,6 +66,10 @@ jobs:
           cp -r index.html assets favicon.svg favicon.png apple-touch-icon.png og.png robots.txt _site/ 2>/dev/null || true
           cp data/snapshot.json _site/data/snapshot.json
           touch _site/.nojekyll
+          # versión en las rutas de CSS y JS: cada publicación se ve enseguida, sin mezclar archivos viejos del caché
+          v="${GITHUB_SHA::7}"
+          sed -i "s#assets/css/estilos.css#assets/css/estilos.css?v=$v#; s#assets/js/app.js#assets/js/app.js?v=$v#" _site/index.html
+          sed -i -E "s#from \"\./([a-z]+)\.js\"#from \"./\1.js?v=$v\"#g" _site/assets/js/*.js
 
       - uses: actions/upload-pages-artifact@v3
         with:
