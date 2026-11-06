@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Renta Global SRL · Asesoramientos financieros</title>
+<meta name="description" content="Dólares, bandas cambiarias del BCRA, fondos comunes de Cocos y del mercado, CEDEARs e indicadores en tiempo real. Renta Global SRL, asesoramientos financieros.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#030817">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="Renta Global SRL · Asesoramientos financieros">
+<meta property="og:description" content="El mercado argentino en tiempo real: dólares, bandas del BCRA, fondos y CEDEARs.">
+<meta property="og:image" content="https://flerda2004-alt.github.io/rentaglobal/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://flerda2004-alt.github.io/rentaglobal/">
+<meta name="twitter:card" content="summary_large_image">
+<meta property="og:type" content="website">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/gilda-display-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preconnect" href="https://dolarapi.com">
+<link rel="preconnect" href="https://api.bcra.gob.ar">
+<link rel="preconnect" href="https://data912.com">
+<link rel="stylesheet" href="assets/css/estilos.css">
+</head>
+<body>
+<!-- Filtro de refracción para el vidrio líquido (solo lo usan los navegadores Chromium) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="lente" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves="2" seed="7" result="ruido"/>
+    <feGaussianBlur in="ruido" stdDeviation="2" result="suave"/>
+    <feDisplacementMap in="SourceGraphic" in2="suave" scale="34" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<a class="saltar" href="#contenido">Saltar al contenido</a>
+
+<div class="cinta" aria-label="Cotizaciones en vivo">
+  <div class="cinta__pista" id="cinta"></div>
+</div>
+
+<header class="nav" id="nav">
+  <a class="nav__marca" href="#inicio" aria-label="Renta Global SRL, inicio">
+    <img src="assets/img/logo-horizontal-oscuro.svg" alt="Renta Global SRL" width="232" height="46">
+  </a>
+  <nav class="nav__links" aria-label="Secciones">
+    <a href="#dolar">Dólar</a>
+    <a href="#bandas">Bandas</a>
+    <a href="#fondos">Fondos</a>
+    <a href="#mercado">Mercado</a>
+    <a href="#calculadora">Calculadora</a>
+  </nav>
+  <div class="nav__acciones">
+    <span class="estado" id="estado-mercado"><i></i><span>Conectando…</span></span>
+    <a class="liquido liquido--sutil" href="https://app.cocos.capital/sign-in" target="_blank" rel="noopener">Ingresar a Cocos</a>
+    <a class="liquido liquido--azul" href="https://cocos.capital/descargar" target="_blank" rel="noopener">Abrí tu cuenta</a>
+    <button class="nav__menu" id="menu-boton" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu-movil"><span></span><span></span></button>
+  </div>
+</header>
+<div class="menu-movil" id="menu-movil" hidden>
+  <a href="#dolar">Dólar hoy</a>
+  <a href="#bandas">Bandas del BCRA</a>
+  <a href="#fondos">Fondos</a>
+  <a href="#mercado">CEDEARs e indicadores</a>
+  <a href="#calculadora">Calculadora</a>
+  <a class="liquido liquido--azul" href="https://cocos.capital/descargar" target="_blank" rel="noopener">Abrí tu cuenta en Cocos</a>
+  <a class="liquido liquido--sutil" href="https://app.cocos.capital/sign-in" target="_blank" rel="noopener">Ingresar a Cocos</a>
+</div>
+
+<main id="contenido">
+
+  <!-- ═══════════════ HERO ═══════════════ -->
+  <section class="hero" id="inicio">
+    <canvas class="hero__fondo" id="hero-fondo" aria-hidden="true"></canvas>
+    <div class="hero__grilla" aria-hidden="true"></div>
+    <div class="contenedor hero__contenido">
+      <div class="hero__texto">
+        <p class="ceja"><span class="punto-vivo"></span> Asesoramiento financiero<span class="ceja__extra">&nbsp;· Mercado en vivo</span></p>
+        <h1 class="titular">Tu capital,<br><em>con criterio</em> profesional.</h1>
+        <p class="hero__bajada">Seguimos el mercado por vos. Dólares, bandas del BCRA, fondos de Cocos y CEDEARs, actualizados solos mientras mirás.</p>
+        <div class="hero__ctas">
+          <a class="liquido liquido--azul liquido--grande" href="#dolar">Ver el mercado hoy <span aria-hidden="true">↓</span></a>
+          <a class="liquido liquido--grande" href="https://cocos.capital/" target="_blank" rel="noopener">Ir a Cocos <span aria-hidden="true">↗</span></a>
+        </div>
+        <dl class="hero__kpis" id="hero-kpis">
+          <div><dt>Riesgo país</dt><dd data-kpi="riesgo">—</dd></div>
+          <div><dt>Cocos Ahorro · TNA</dt><dd data-kpi="cocos">—</dd></div>
+          <div><dt>Inflación mensual</dt><dd data-kpi="inflacion">—</dd></div>
+        </dl>
+      </div>
+
+      <div class="hero__visual" id="hero-visual">
+        <article class="tarjeta-vidrio hero__principal" data-tilt>
+          <header class="hero__principal-cab">
+            <span class="etiqueta-vivo"><i></i> EN VIVO</span>
+            <span class="tenue" id="hero-hora">—</span>
+          </header>
+          <p class="hero__principal-nombre">Dólar MEP</p>
+          <p class="hero__principal-valor"><span class="moneda">$</span><span id="hero-mep">—</span></p>
+          <p class="hero__principal-var" id="hero-mep-var">&nbsp;</p>
+          <div class="hero__mini" id="hero-mini" aria-hidden="true"></div>
+          <ul class="hero__filas" id="hero-filas"></ul>
+        </article>
+        <div class="flotante flotante--a" data-profundidad="28"><span>Techo de la banda</span><strong id="flot-techo">—</strong></div>
+        <div class="flotante flotante--b" data-profundidad="42"><span>Brecha CCL</span><strong id="flot-brecha">—</strong></div>
+        <div class="flotante flotante--c" data-profundidad="18"><span>Cocos Pesos Plus</span><strong id="flot-plus">—</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ DÓLAR ═══════════════ -->
+  <section class="seccion" id="dolar">
+    <div class="contenedor">
+      <header class="seccion__cab">
+        <div>
+          <p class="ceja">Cotizaciones</p>
+          <h2 class="titulo">Dólar hoy</h2>
+          <p class="lead">Compra y venta de todas las cotizaciones, con la variación del día y la brecha contra el oficial.</p>
+        </div>
+        <p class="sello" id="dolar-sello"><span class="punto-vivo"></span> <span>Cargando…</span></p>
+      </header>
+      <div class="dolares" id="dolares" role="list"></div>
+      <div class="panel panel--grafico">
+        <div class="panel__cab">
+          <div>
+            <h3 class="panel__titulo" id="dolar-graf-titulo">Evolución del dólar</h3>
+            <p class="tenue" id="dolar-graf-sub">Precio de venta, en pesos</p>
+          </div>
+          <div class="controles">
+            <div class="chips" id="dolar-series" role="group" aria-label="Cotizaciones a comparar"></div>
+            <div class="segmentado" id="dolar-periodo" role="tablist" aria-label="Período">
+              <button role="tab" data-p="30">1M</button>
+              <button role="tab" data-p="90" aria-selected="true">3M</button>
+              <button role="tab" data-p="180">6M</button>
+              <button role="tab" data-p="365">1A</button>
+            </div>
+          </div>
+        </div>
+        <div class="grafico" id="dolar-grafico" style="height:340px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ BANDAS ═══════════════ -->
+  <section class="seccion" id="bandas">
+    <div class="contenedor">
+      <header class="seccion__cab">
+        <div>
+          <p class="ceja">Banco Central</p>
+          <h2 class="titulo">Bandas cambiarias</h2>
+          <p class="lead">El dólar mayorista flota entre un piso y un techo que el BCRA corre todos los días, al ritmo de la última inflación publicada. Si toca el techo, el BCRA vende; si toca el piso, compra.</p>
+        </div>
+        <p class="sello" id="bandas-sello"><span>Cargando…</span></p>
+      </header>
+      <div class="bandas">
+        <div class="panel bandas__datos">
+          <div class="bandas__fila">
+            <span>Mayorista (A3500)</span>
+            <strong id="b-mayorista">—</strong>
+          </div>
+          <div class="bandas__regla" aria-hidden="true">
+            <div class="bandas__regla-pista"><i id="b-marcador"></i></div>
+            <div class="bandas__regla-ext"><span>Piso</span><span>Techo</span></div>
+          </div>
+          <div class="bandas__dos">
+            <div><span>Techo</span><strong id="b-techo">—</strong><em id="b-techo-dist">—</em></div>
+            <div><span>Piso</span><strong id="b-piso">—</strong><em id="b-piso-dist">—</em></div>
+          </div>
+          <p class="tenue pequeno" id="b-nota">—</p>
+        </div>
+        <div class="panel panel--grafico bandas__grafico">
+          <div class="panel__cab">
+            <div>
+              <h3 class="panel__titulo">Mayorista dentro de la banda</h3>
+              <p class="tenue">Desde el inicio del régimen, 14/04/2025</p>
+            </div>
+          </div>
+          <div class="grafico" id="bandas-grafico" style="height:330px"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ FONDOS ═══════════════ -->
+  <section class="seccion" id="fondos">
+    <div class="contenedor">
+      <header class="seccion__cab">
+        <div>
+          <p class="ceja">Fondos comunes de inversión</p>
+          <h2 class="titulo">Cómo rinden los fondos</h2>
+          <p class="lead">Los fondos de Cocos contra los money market de Macro y Santander, calculados con la misma regla sobre el valor de cuotaparte.</p>
+        </div>
+        <p class="sello" id="fondos-sello"><span>Cargando…</span></p>
+      </header>
+      <div class="controles controles--fondos">
+        <div class="segmentado" id="fondos-moneda" role="tablist" aria-label="Moneda">
+          <button role="tab" data-m="ARS" aria-selected="true">En pesos</button>
+          <button role="tab" data-m="USD">En dólares</button>
+        </div>
+        <div class="segmentado" id="fondos-periodo" role="tablist" aria-label="Período">
+          <button role="tab" data-p="d1"><span class="largo">Último día</span><span class="corto">1D</span></button>
+          <button role="tab" data-p="d7"><span class="largo">7 días</span><span class="corto">7D</span></button>
+          <button role="tab" data-p="d30" aria-selected="true"><span class="largo">30 días</span><span class="corto">30D</span></button>
+          <button role="tab" data-p="d90"><span class="largo">90 días</span><span class="corto">90D</span></button>
+          <button role="tab" data-p="ytd"><span class="largo">En el año</span><span class="corto">Año</span></button>
+          <button role="tab" data-p="d365"><span class="largo">12 meses</span><span class="corto">12M</span></button>
+        </div>
+      </div>
+      <div class="fondos">
+        <div class="panel fondos__ranking">
+          <div class="panel__cab"><div><h3 class="panel__titulo" id="fondos-rank-titulo">Ranking</h3><p class="tenue" id="fondos-rank-sub">TNA del período</p></div></div>
+          <ol class="ranking" id="fondos-ranking"></ol>
+          <p class="comparativa" id="fondos-comparativa" hidden></p>
+          <p class="tenue pequeno" id="fondos-ref"></p>
+        </div>
+        <div class="panel panel--grafico fondos__grafico">
+          <div class="panel__cab"><div><h3 class="panel__titulo">Rendimiento acumulado</h3><p class="tenue" id="fondos-graf-sub">Base 0% al inicio del período</p></div></div>
+          <div class="grafico" id="fondos-grafico" style="height:320px"></div>
+          <div class="leyenda" id="fondos-leyenda"></div>
+        </div>
+      </div>
+      <div class="panel tabla-panel">
+        <div class="tabla-scroll">
+          <table class="tabla" id="fondos-tabla">
+            <thead>
+              <tr><th>Fondo</th><th>Tipo</th><th>Rescate</th><th class="num">TNA 1 día</th><th class="num">Rend. período</th><th class="num">TEA</th><th class="num">Patrimonio</th><th class="num">Cuotaparte</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="tenue pequeno nota-fondos">Clase A en todos los casos. TNA = rendimiento del período anualizado en forma simple; TEA = compuesto. Cocos Pesos Plus y Cocos Dólares Plus son de renta fija con rescate en 24 hs y riesgo medio: rinden más porque asumen más riesgo que un money market.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ CALCULADORA ═══════════════ -->
+  <section class="seccion" id="calculadora">
+    <div class="contenedor">
+      <header class="seccion__cab">
+        <div>
+          <p class="ceja">Simulador</p>
+          <h2 class="titulo">¿Cuánto genera tu plata?</h2>
+          <p class="lead">Proyección con el rendimiento real de los últimos 30 días de cada fondo, contra un plazo fijo tradicional.</p>
+        </div>
+      </header>
+      <div class="calc panel">
+        <form class="calc__entradas" id="calc-form" onsubmit="return false">
+          <div class="segmentado" id="calc-moneda" role="tablist" aria-label="Moneda">
+            <button type="button" role="tab" data-m="ARS" aria-selected="true">Pesos</button>
+            <button type="button" role="tab" data-m="USD">Dólares</button>
+          </div>
+          <label class="campo" for="calc-monto">
+            <span>Monto a invertir</span>
+            <span class="campo__caja"><span id="calc-signo">$</span><input id="calc-monto" inputmode="numeric" autocomplete="off" value="1.000.000"></span>
+          </label>
+          <label class="campo" for="calc-dias">
+            <span>Plazo: <strong id="calc-dias-txt">30 días</strong></span>
+            <input type="range" id="calc-dias" min="1" max="365" value="30">
+            <span class="campo__marcas"><span>1 día</span><span>6 meses</span><span>1 año</span></span>
+          </label>
+        </form>
+        <div class="calc__resultados" id="calc-resultados" aria-live="polite"></div>
+      </div>
+      <p class="tenue pequeno">La proyección supone que el fondo mantiene el rendimiento de los últimos 30 días; los rendimientos pasados no garantizan rendimientos futuros. El plazo fijo usa la TNA para clientes del Banco Nación informada al BCRA.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════ MERCADO ═══════════════ -->
+  <section class="seccion" id="mercado">
+    <div class="contenedor">
+      <header class="seccion__cab">
+        <div>
+          <p class="ceja">Mercado</p>
+          <h2 class="titulo">CEDEARs y acciones hoy</h2>
+          <p class="lead">Los que más suben, los que más bajan y los más operados de la rueda en BYMA, en pesos.</p>
+        </div>
+        <p class="sello" id="mercado-sello"><span>Cargando…</span></p>
+      </header>
+      <div class="controles">
+        <div class="segmentado" id="mercado-panel" role="tablist" aria-label="Instrumentos">
+          <button role="tab" data-t="cedears" aria-selected="true">CEDEARs</button>
+          <button role="tab" data-t="acciones">Acciones argentinas</button>
+        </div>
+      </div>
+      <div class="movers">
+        <div class="panel"><h3 class="panel__titulo panel__titulo--sube">Suben</h3><ol class="lista-movers" id="m-suben"></ol></div>
+        <div class="panel"><h3 class="panel__titulo panel__titulo--baja">Bajan</h3><ol class="lista-movers" id="m-bajan"></ol></div>
+        <div class="panel"><h3 class="panel__titulo">Más operados</h3><ol class="lista-movers" id="m-operados"></ol></div>
+      </div>
+
+      <header class="seccion__cab seccion__cab--sub">
+        <div>
+          <p class="ceja">Macro</p>
+          <h2 class="titulo titulo--chico">Indicadores clave</h2>
+        </div>
+      </header>
+      <div class="indicadores" id="indicadores"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ COCOS ═══════════════ -->
+  <section class="seccion seccion--cocos" id="cocos">
+    <div class="contenedor">
+      <div class="cocos panel">
+        <div class="cocos__texto">
+          <p class="ceja">Operá con nosotros</p>
+          <h2 class="titulo">Invertí en Cocos, con el acompañamiento de Renta Global</h2>
+          <p class="lead">Abrís tu cuenta gratis desde el celular en minutos y operás dólar MEP, CEDEARs, bonos, cauciones y fondos con nuestro asesoramiento.</p>
+          <div class="hero__ctas">
+            <a class="liquido liquido--azul liquido--grande" href="https://cocos.capital/descargar" target="_blank" rel="noopener">Abrí tu cuenta gratis <span aria-hidden="true">↗</span></a>
+            <a class="liquido liquido--grande" href="https://cocos.capital/fondos-comunes-de-inversion" target="_blank" rel="noopener">Ver fondos de Cocos</a>
+          </div>
+        </div>
+        <ol class="cocos__pasos">
+          <li><span>1</span><div><strong>Abrís tu cuenta</strong><p>Desde la app de Cocos, con tu DNI, en 5 minutos.</p></div></li>
+          <li><span>2</span><div><strong>Armamos tu estrategia</strong><p>Según tu perfil, tus plazos y la moneda en la que pensás.</p></div></li>
+          <li><span>3</span><div><strong>Invertís y seguimos juntos</strong><p>Te avisamos cuando conviene rebalancear o aprovechar una oportunidad.</p></div></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ SERVICIOS ═══════════════ -->
+  <section class="seccion" id="servicios">
+    <div class="contenedor">
+      <header class="seccion__cab">
+        <div>
+          <p class="ceja">Renta Global SRL</p>
+          <h2 class="titulo">Qué hacemos por vos</h2>
+        </div>
+      </header>
+      <div class="servicios">
+        <article class="servicio panel"><span class="servicio__icono" aria-hidden="true">01</span><h3>Carteras a medida</h3><p>Combinamos fondos, bonos, CEDEARs y acciones según tu perfil de riesgo y tu horizonte.</p></article>
+        <article class="servicio panel"><span class="servicio__icono" aria-hidden="true">02</span><h3>Pesos que rinden</h3><p>Elegimos entre money market, cauciones, Lecaps y fondos T+1 para que la liquidez no pierda contra la inflación.</p></article>
+        <article class="servicio panel"><span class="servicio__icono" aria-hidden="true">03</span><h3>Dolarización inteligente</h3><p>MEP, CCL y cobertura cambiaria con criterio, dentro del marco normativo del mercado de cambios.</p></article>
+        <article class="servicio panel"><span class="servicio__icono" aria-hidden="true">04</span><h3>Seguimiento constante</h3><p>Monitoreamos el mercado todos los días y te avisamos cuando hay que mover algo.</p></article>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="pie">
+  <div class="contenedor">
+    <div class="pie__arriba">
+      <img src="assets/img/logo-vertical-oscuro.svg" alt="Renta Global SRL — Asesoramientos financieros" width="220" height="108" loading="lazy">
+      <div class="pie__links">
+        <a href="https://cocos.capital/" target="_blank" rel="noopener">Cocos</a>
+        <a href="https://app.cocos.capital/sign-in" target="_blank" rel="noopener">Ingresar a Cocos</a>
+        <a href="https://cocos.capital/fondos-comunes-de-inversion" target="_blank" rel="noopener">Fondos de Cocos</a>
+        <a href="https://www.cnv.gov.ar/" target="_blank" rel="noopener">CNV</a>
+      </div>
+    </div>
+    <div class="pie__legal">
+      <p id="legal-ap">Renta Global SRL – Asesoramientos financieros. Agente Productor registrado ante la Comisión Nacional de Valores.</p>
+      <p>Opera a través de Cocos Capital S.A. – Agente de Liquidación y Compensación Propio N° 688 y Agente de Colocación y Distribución Integral de FCI N° 143 de la CNV. Los fondos de Cocos son administrados por Cocos Asset Management S.A. – AAPIC-FCI N° 56.</p>
+      <p>La información de este sitio es de carácter informativo y no constituye una recomendación de inversión ni una oferta de compra o venta de valores. Las inversiones en cuotapartes de fondos comunes de inversión no constituyen depósitos en entidades financieras a los fines de la Ley de Entidades Financieras ni cuentan con ninguna de las garantías que tales depósitos puedan gozar de acuerdo con la legislación y reglamentación aplicables. Los rendimientos pasados no garantizan rendimientos futuros. Invertir implica riesgos, incluida la posible pérdida del capital.</p>
+      <p>Fuentes: Banco Central de la República Argentina (bandas, mayorista, reservas, tasas), CAFCI vía ArgentinaDatos (fondos de Macro y Santander), Cocos Capital (fondos de Cocos), DolarApi y ArgentinaDatos (dólares), Data912 (CEDEARs y acciones), INDEC vía ArgentinaDatos (inflación). Las cotizaciones pueden tener demoras según la fuente.</p>
+      <p class="pie__fin"><span>© <span id="anio"></span> Renta Global SRL</span><span id="pie-actualizado"></span></p>
+    </div>
+  </div>
+</footer>
+
+<div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+<script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

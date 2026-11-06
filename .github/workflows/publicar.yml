@@ -1,0 +1,91 @@
+name: Datos y publicación
+
+# Actualiza los datos que la web no puede pedir directo desde el navegador (fondos de Cocos,
+# CAFCI, historia de dólares, bandas, macro) y publica el sitio en GitHub Pages.
+# Los precios en vivo (dólares, CEDEARs, BCRA, riesgo país) los pide la web sola cada pocos segundos.
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Hora UTC. Días hábiles: cada 30 minutos de 10:05 a 20:35 (hora Argentina)
+    - cron: "5,35 13-23 * * 1-5"
+    # Todos los días a la noche y a la mañana (cuotapartes nuevas de la CAFCI)
+    - cron: "15 2,11 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # solo para el commit de mantenimiento (ver el último paso)
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Recuperar historia acumulada de los fondos
+        uses: actions/cache/restore@v4
+        with:
+          path: data/cache_fci.json
+          key: fci-${{ github.run_id }}
+          restore-keys: fci-
+
+      - name: Recuperar el último snapshot publicado
+        run: |
+          mkdir -p data
+          curl -fsSL --max-time 30 "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data/snapshot.json" -o data/snapshot.json || rm -f data/snapshot.json
+
+      - name: Actualizar datos
+        run: |
+          pip install -q requests
+          python scripts/actualizar_datos.py
+
+      - name: Guardar historia acumulada
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/cache_fci.json
+          key: fci-${{ github.run_id }}
+
+      - name: Armar el sitio
+        run: |
+          mkdir -p _site/data
+          cp -r index.html assets favicon.svg favicon.png apple-touch-icon.png og.png robots.txt _site/ 2>/dev/null || true
+          cp data/snapshot.json _site/data/snapshot.json
+          touch _site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      # GitHub pausa los cronogramas de un repositorio que pasa 60 días sin commits.
+      # Cada 45 días sin cambios se hace un commit mínimo para que las actualizaciones no se detengan.
+      - name: Mantener activo el cronograma
+        if: github.event_name == 'schedule'
+        run: |
+          dias=$(( ( $(date +%s) - $(git log -1 --format=%ct) ) / 86400 ))
+          echo "Días desde el último commit: $dias"
+          if [ "$dias" -ge 45 ]; then
+            date -u +%FT%TZ > .mantener-activo
+            git config user.name "github-actions[bot]"
+            git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+            git add .mantener-activo
+            git commit -m "Mantener activas las actualizaciones automáticas"
+            git push
+          fi
