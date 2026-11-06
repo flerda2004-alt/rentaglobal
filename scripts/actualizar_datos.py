@@ -40,13 +40,13 @@ COCOS = "https://cocos.capital/api/funds"
 # cafci = (categoría en ArgentinaDatos, nombre exacto en la CAFCI) — respaldo para los de Cocos
 FONDOS = [
     {"id": "cocos-ahorro", "nombre": "Cocos Ahorro", "gestora": "Cocos", "moneda": "ARS",
-     "tipo": "Money market", "rescate": "T+0", "riesgo": "Bajo", "slug": "cocos-ahorro",
+     "tipo": "Money market", "rescate": "T+0", "riesgo": "Bajo", "slug": "cocos-ahorro", "tickers": ["COCOA", "COCOB", "COCOALEY"],
      "cafci": ("mercadoDinero", "Cocos Ahorro - Clase A")},
     {"id": "cocos-rendimiento", "nombre": "Cocos Rendimiento", "gestora": "Cocos", "moneda": "ARS",
-     "tipo": "Renta mixta", "rescate": "T+0", "riesgo": "Bajo", "slug": "cocos-rendimiento",
+     "tipo": "Renta mixta", "rescate": "T+0", "riesgo": "Bajo", "slug": "cocos-rendimiento", "tickers": ["COCORMA", "COCORMB"],
      "cafci": ("rentaMixta", "Cocos Rendimiento - Clase A")},
     {"id": "cocos-pesos-plus", "nombre": "Cocos Pesos Plus", "gestora": "Cocos", "moneda": "ARS",
-     "tipo": "Renta fija · retorno total", "rescate": "T+1", "riesgo": "Medio", "slug": "cocos-pesos-plus",
+     "tipo": "Renta fija · retorno total", "rescate": "T+1", "riesgo": "Medio", "slug": "cocos-pesos-plus", "tickers": ["COCOSPPA", "COCOSPPB", "COCOSPPC"],
      "cafci": None},
     {"id": "pionero-pesos-plus", "nombre": "Pionero Pesos Plus", "gestora": "Macro", "moneda": "ARS",
      "tipo": "Money market", "rescate": "T+0", "riesgo": "Bajo", "slug": None,
@@ -55,10 +55,10 @@ FONDOS = [
      "tipo": "Money market", "rescate": "T+0", "riesgo": "Bajo", "slug": None,
      "cafci": ("mercadoDinero", "Super Ahorro Plus - Clase A")},
     {"id": "cocos-ahorro-dolares", "nombre": "Cocos Ahorro Dólares", "gestora": "Cocos", "moneda": "USD",
-     "tipo": "Renta fija USD", "rescate": "T+0", "riesgo": "Bajo", "slug": "cocos-ahorro-dolares",
+     "tipo": "Renta fija USD", "rescate": "T+0", "riesgo": "Bajo", "slug": "cocos-ahorro-dolares", "tickers": ["COCOAUSD", "COCOBUSD", "COCOULEY"],
      "cafci": ("rentaFija", "Cocos Ahorro Dólares - Clase A")},
     {"id": "cocos-dolares-plus", "nombre": "Cocos Dólares Plus", "gestora": "Cocos", "moneda": "USD",
-     "tipo": "Renta fija USD", "rescate": "T+1", "riesgo": "Medio", "slug": "cocos-dolares-plus",
+     "tipo": "Renta fija USD", "rescate": "T+1", "riesgo": "Medio", "slug": "cocos-dolares-plus", "tickers": ["COCOUSDPA", "COCOUSDPB", "COCOUSDPD"],
      "cafci": ("rentaFija", "Cocos Dólares Plus - Clase A")},
     {"id": "pionero-mm-dolar", "nombre": "Pionero Money Market Dólar", "gestora": "Macro", "moneda": "USD",
      "tipo": "Money market USD", "rescate": "T+0", "riesgo": "Bajo", "slug": None,
@@ -138,7 +138,13 @@ def rendimientos(serie: list[list]) -> dict:
 
 
 # ── Fuentes ─────────────────────────────────────────────────────────────────────
-def cocos_fondo(f: dict) -> dict | None:
+def cocos_patrimonios() -> dict:
+    """Patrimonio de cada clase de los fondos de Cocos, por ticker (para sumar el total del fondo)."""
+    js = get(f"{COCOS}/live-list")
+    return {x["ticker"]: float(x["nav"]) for x in (js or {}).get("liveFunds", []) if x.get("ticker") and x.get("nav")}
+
+
+def cocos_fondo(f: dict, navs: dict) -> dict | None:
     live = get(f"{COCOS}/live", params={"slug": f["slug"]})
     hist = get(f"{COCOS}/history", params={"slug": f["slug"]})
     if not live or not hist or not hist.get("priceHistory"):
@@ -150,7 +156,8 @@ def cocos_fondo(f: dict) -> dict | None:
         "fuente": "Cocos",
         "fecha": live.get("fechaActualizacion") or serie[-1][0],
         "vcp": live.get("cuotaparte") or serie[-1][1],
-        "patrimonio": live.get("patrimonio"),
+        # patrimonio total (todas las clases); si no está el listado, el de la clase A
+        "patrimonio": sum(navs[t] for t in f.get("tickers", []) if t in navs) or live.get("patrimonio"),
         "tna_cocos": live.get("tna"),
         "rend_cocos": live.get("rendimientos"),
         "estimado": {"etiqueta": live.get("yieldLabel"), "tasa": live.get("yieldRate")} if live.get("yieldRate") else None,
@@ -173,18 +180,24 @@ def actualizar_cache_cafci(cache: dict) -> dict:
         if f["cafci"]:
             nombres_por_cat.setdefault(f["cafci"][0], set()).add(f["cafci"][1])
 
-    def absorber(lista, cat):
+    patrimonios = cache.setdefault("patrimonio", {})
+    bases = {n.split(" - Clase")[0] for ns in nombres_por_cat.values() for n in ns}
+
+    def absorber(lista, cat, con_patrimonio=False):
         n = 0
         for x in lista or []:
             if x.get("fondo") in nombres_por_cat[cat] and x.get("vcp"):
                 series.setdefault(x["fondo"], {})[x["fecha"][:10]] = float(x["vcp"])
                 n += 1
+            base = (x.get("fondo") or "").split(" - Clase")[0]
+            if con_patrimonio and base in bases and x.get("patrimonio") is not None:
+                patrimonios.setdefault(base, {}).setdefault(x["fecha"][:10], {})[x["fondo"]] = float(x["patrimonio"])
         return n
 
     for cat in nombres_por_cat:
         for cuando in ("ultimo", "penultimo"):
             try:
-                absorber(cafci_snapshot(cat, cuando), cat)
+                absorber(cafci_snapshot(cat, cuando), cat, con_patrimonio=True)
             except Exception as e:  # noqa: BLE001
                 log("CAFCI", cat, cuando, "falló:", e)
 
@@ -221,6 +234,8 @@ def actualizar_cache_cafci(cache: dict) -> dict:
     pedidos[cat] = sorted(x for x in hechos if x >= limite)
     for nombre in list(series):
         series[nombre] = {k: v for k, v in series[nombre].items() if k >= limite}
+    for base in list(patrimonios):
+        patrimonios[base] = dict(sorted(patrimonios[base].items())[-5:])
     log(f"CAFCI: {nuevos} fechas nuevas consultadas")
     return cache
 
@@ -228,19 +243,30 @@ def actualizar_cache_cafci(cache: dict) -> dict:
 def armar_fondos(cache: dict, previo: dict) -> list:
     salida = []
     prev_por_id = {f["id"]: f for f in (previo.get("fondos") or [])}
+    try:
+        navs = cocos_patrimonios()
+    except Exception as e:  # noqa: BLE001
+        log("Cocos live-list falló:", e)
+        navs = {}
     for f in FONDOS:
         base = {k: f[k] for k in ("id", "nombre", "gestora", "moneda", "tipo", "rescate", "riesgo")}
         base["clase"] = "A"
         dato = None
         if f["slug"]:
             try:
-                dato = cocos_fondo(f)
+                dato = cocos_fondo(f, navs)
             except Exception as e:  # noqa: BLE001
                 log("Cocos", f["slug"], "falló:", e)
         if dato is None and f["cafci"]:
             pts = sorted((cache.get("series") or {}).get(f["cafci"][1], {}).items())
             if len(pts) >= 2:
-                dato = {"fuente": "CAFCI", "fecha": pts[-1][0], "vcp": pts[-1][1], "serie": [[a, b] for a, b in pts]}
+                # patrimonio total: el último dato de cada clase del fondo, sumado
+                pat = (cache.get("patrimonio") or {}).get(f["cafci"][1].split(" - Clase")[0], {})
+                por_clase = {}
+                for fch in sorted(pat):
+                    por_clase.update(pat[fch])
+                total = sum(por_clase.values()) or None
+                dato = {"fuente": "CAFCI", "fecha": pts[-1][0], "vcp": pts[-1][1], "patrimonio": total, "serie": [[a, b] for a, b in pts]}
         if dato is None:
             if f["id"] in prev_por_id:
                 log("Fondo", f["id"], "sin datos nuevos: se conserva el anterior")

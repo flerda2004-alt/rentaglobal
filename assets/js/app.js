@@ -1,5 +1,5 @@
 import { CONFIG, CASAS, COLOR_FONDO, NOMBRES } from "./config.js";
-import { $, $$, h, num, pesos, pct, compacto, clase, flecha, fechaDM, mesCorto, horaAR, hace, ahoraAR, estadoMercado, pedir, animarNumero, segmentado } from "./util.js";
+import { $, $$, h, num, pesos, pct, clase, flecha, fechaDM, mesCorto, horaAR, hace, ahoraAR, estadoMercado, pedir, animarNumero, segmentado } from "./util.js";
 import { lineas, sparkline, barras } from "./graficos.js";
 import { iniciarEfectos, prepararTarjetas, fondoHero } from "./efectos.js";
 
@@ -244,6 +244,8 @@ const esTasa = (p) => ["d1", "d7", "d30"].includes(p);
 const medida = (f, p) => f.rend?.[p] || null;
 const valorRanking = (f, p) => { const m = medida(f, p); return m ? (esTasa(p) ? m.tna : m.rend) : null; };
 const colorFondo = (f) => COLOR_FONDO[f.id] || "#8e9bb3";
+// Patrimonio con una sola unidad por moneda para poder comparar: miles de millones en pesos, millones en dólares
+const patrimonio = (v, moneda) => (!(v > 0) ? "—" : moneda === "ARS" ? `$ ${num(v / 1e9, 1)} mil M` : `US$ ${num(v / 1e6, 0)} M`);
 const nombreCorto = (f) => (f.gestora === "Cocos" ? f.nombre.replace(/^Cocos /, "") : f.nombre);
 const marca = (f) => h("span", { class: `marca-gestora marca-gestora--${f.gestora.toLowerCase()}` }, f.gestora);
 
@@ -307,6 +309,9 @@ function renderFondos() {
     const datos = serie.filter((x) => x[0] >= base[0]).map((x) => [x[0], (x[1] / base[1] - 1) * 100]);
     return { nombre: f.nombre, color: colorFondo(f), datos, ancho: f.gestora === "Cocos" ? 2.6 : 1.8 };
   }).filter(Boolean);
+  // las series con pocos puntos (historia incompleta de la CAFCI) van punteadas
+  const maxPuntos = Math.max(...series.map((s) => s.datos.length), 0);
+  for (const s of series) if (s.datos.length < maxPuntos * 0.5) s.punteada = true;
   $("#fondos-graf-sub").textContent = `Base 0% al inicio · ${p === "d1" ? "últimos 30 días" : ETIQ_PERIODO[p]}`;
   const opts = {
     series, base: 0, titulo: "Rendimiento acumulado de los fondos", vacio: S.snap ? "Sin datos para este período" : "Cargando…",
@@ -316,7 +321,6 @@ function renderFondos() {
   $("#fondos-leyenda").replaceChildren(...series.map((s) => h("span", { style: { "--c": s.color } }, h("i"), s.nombre)));
 
   // tabla completa
-  const signo = S.fondosMoneda === "ARS" ? "$" : "US$";
   $("#fondos-tabla tbody").replaceChildren(...[...lista].sort((a, b) => (valorRanking(b, p) ?? -1e9) - (valorRanking(a, p) ?? -1e9)).map((f) => {
     const m = medida(f, p), d1 = f.rend?.d1;
     return h("tr", { class: f.gestora === "Cocos" ? "es-cocos" : "" },
@@ -324,9 +328,9 @@ function renderFondos() {
       h("td", { class: "tenue celda-tipo" }, f.tipo),
       h("td", {}, f.rescate),
       h("td", { class: "num" }, d1 ? pct(d1.tna, 2) : "—"),
-      h("td", { class: "num " + (m ? clase(m.rend) : "") }, m ? pct(m.rend, 2, true) : "—"),
+      h("td", { class: "num " + (m ? clase(m.rend) : "") }, m ? pct(m.rend, 2, true) : "—", m ? h("small", { class: "tenue celda-fecha" }, `desde ${fechaDM(m.desde)}`) : null),
       h("td", { class: "num" }, m ? pct(m.tea, 2) : "—"),
-      h("td", { class: "num" }, compacto(f.patrimonio, signo)),
+      h("td", { class: "num" }, patrimonio(f.patrimonio, f.moneda)),
       h("td", { class: "num" }, f.vcp != null ? num(f.vcp, 3) : "—", h("small", { class: "tenue celda-fecha" }, fechaDM(fechaAR(f.fecha) || ""))),
       h("td", {}, f.gestora === "Cocos" ? h("a", { href: CONFIG.links.cocosFondo(f.id), target: "_blank", rel: "noopener", title: `Ver ${f.nombre} en Cocos` }, "En Cocos ↗") : ""));
   }));
@@ -391,44 +395,62 @@ function iniciarCalculadora() {
 }
 
 // ── Mercado ─────────────────────────────────────────────────────────────────
+const snapMercadoMemo = new WeakMap();
 function listaMercado(panel) {
   const vivo = S.mercado[panel];
   if (vivo?.length) return vivo;
-  return (S.snap?.mercado?.[panel] || []).map((x) => ({ symbol: x.s, c: x.c, pct_change: x.p, v: x.v, q_op: x.q }));
+  const crudo = S.snap?.mercado?.[panel];
+  if (!crudo) return [];
+  if (!snapMercadoMemo.has(crudo)) snapMercadoMemo.set(crudo, crudo.map((x) => ({ symbol: x.s, c: x.c, pct_change: x.p, v: x.v, q_op: x.q })));
+  return snapMercadoMemo.get(crudo);
+}
+// Solo especies en pesos: fuera las de dólar MEP (terminan en D) y cable (C), incluidas las de sufijo con punto (BMA.D).
+// Una especie en dólares vale entre 400 y 6.000 veces menos que su par en pesos, que empieza igual (AAL / AALD, TGSU2 / TGSUD).
+const enPesosMemo = new WeakMap();
+function enPesos(crudo) {
+  if (enPesosMemo.has(crudo)) return enPesosMemo.get(crudo);
+  const conPrecio = crudo.filter((x) => x.c > 0 && x.symbol);
+  const res = conPrecio.filter((x) => {
+    if (/\.[A-Z]$/.test(x.symbol)) return false;
+    if (!/[CD]$/.test(x.symbol)) return true;
+    const pref = x.symbol.slice(0, 3);
+    return !conPrecio.some((y) => y !== x && y.symbol.startsWith(pref) && y.c / x.c > 400 && y.c / x.c < 6000);
+  });
+  enPesosMemo.set(crudo, res);
+  return res;
 }
 function moversDe(panel) {
-  const crudo = listaMercado(panel);
-  const simbolos = new Set(crudo.map((x) => x.symbol));
-  const lista = crudo
-    // fuera las especies en dólares (terminan en D) y cable (C): se muestra todo en pesos
-    .filter((x) => x.symbol && !(/[DC]$/.test(x.symbol) && simbolos.has(x.symbol.slice(0, -1))))
+  const lista = enPesos(listaMercado(panel))
     .map((x) => ({ s: x.symbol, c: x.c, p: x.pct_change, v: x.v || 0, q: x.q_op || 0 }))
-    .filter((x) => x.c > 0 && x.p != null && isFinite(x.p));
+    .filter((x) => x.p != null && isFinite(x.p));
   // para subas y bajas se exige un mínimo de operaciones: evita papeles sin liquidez con saltos falsos
   const liquidos = lista.filter((x) => x.q >= (panel === "cedears" ? 15 : 5));
   return {
     suben: liquidos.filter((x) => x.p > 0).sort((a, b) => b.p - a.p).slice(0, 8),
     bajan: liquidos.filter((x) => x.p < 0).sort((a, b) => a.p - b.p).slice(0, 8),
-    operados: [...lista].sort((a, b) => b.v - a.v).slice(0, 8),
+    // volumen nominal por precio = monto operado en pesos
+    operados: lista.filter((x) => x.v > 0).sort((a, b) => b.v * b.c - a.v * a.c).slice(0, 8),
   };
 }
 function renderMercado() {
   const panel = S.panelMercado;
   const m = moversDe(panel);
-  const fila = (x) => h("li", {},
-    h("div", {}, h("div", { class: "mover__tk" }, x.s), h("div", { class: "mover__nombre" }, NOMBRES[x.s] || (panel === "cedears" ? "CEDEAR" : "Acción"))),
+  const nombre = (x) => NOMBRES[x.s] || (panel === "cedears" ? "CEDEAR" : "Acción");
+  const monto = (x) => { const v = x.v * x.c; return v >= 1e9 ? `$ ${num(v / 1e9, 1)} mil M` : `$ ${num(v / 1e6, 0)} M`; };
+  const fila = (x, conMonto) => h("li", {},
+    h("div", {}, h("div", { class: "mover__tk" }, x.s), h("div", { class: "mover__nombre" }, conMonto ? `${nombre(x)} · ${monto(x)}` : nombre(x))),
     h("div", {}, h("div", { class: "mover__precio" }, precio(x.c)), h("div", { class: "mover__pct" }, h("span", { class: `pastilla ${clase(x.p)}` }, varTxt(x.p)))));
   const vacio = (t) => [h("li", {}, h("span", { class: "vacio" }, t))];
   const cargando = !S.snap && !S.mercado.ts;
-  $("#m-suben").replaceChildren(...(m.suben.length ? m.suben.map(fila) : vacio(cargando ? "Cargando…" : "Sin papeles en alza")));
-  $("#m-bajan").replaceChildren(...(m.bajan.length ? m.bajan.map(fila) : vacio(cargando ? "Cargando…" : "Sin papeles en baja")));
-  $("#m-operados").replaceChildren(...(m.operados.length ? m.operados.map(fila) : vacio(cargando ? "Cargando…" : "Todavía no hay operaciones")));
+  $("#m-suben").replaceChildren(...(m.suben.length ? m.suben.map((x) => fila(x)) : vacio(cargando ? "Cargando…" : "Sin papeles en alza")));
+  $("#m-bajan").replaceChildren(...(m.bajan.length ? m.bajan.map((x) => fila(x)) : vacio(cargando ? "Cargando…" : "Sin papeles en baja")));
+  $("#m-operados").replaceChildren(...(m.operados.length ? m.operados.map((x) => fila(x, true)) : vacio(cargando ? "Cargando…" : "Todavía no hay operaciones")));
   const est = estadoMercado(feriados());
-  const fechaSnap = S.snap?.mercado?.[`${panel}_fecha`];
   let txt;
   if (S.mercado.vivo && est.abierto) txt = `<span class="punto-vivo"></span> <span>En vivo · actualizado ${hace(S.mercado.ts)}</span>`;
-  else if (fechaSnap) txt = `<span>${est.abierto ? "Rueda en curso" : "Última rueda"} · dato de las ${fechaSnap.slice(11, 16)} del ${fechaDM(fechaSnap)}</span>`;
-  else txt = `<span>${est.texto}</span>`;
+  else if (est.abierto) txt = "<span>Rueda en curso · último dato publicado</span>";
+  else if (est.habil && ahoraAR().h < 11) txt = "<span>Abre a las 11:00 · datos de la rueda anterior</span>";
+  else txt = "<span>Mercado cerrado · datos de la última rueda</span>";
   $("#mercado-sello").innerHTML = txt;
 }
 
@@ -474,7 +496,7 @@ function renderIndicadores() {
     const base = [...res].reverse().find((p) => p[0] <= restarDias(u[0], 30));
     const dif = base ? u[1] - base[1] : null;
     tarjetas.push({
-      n: "Reservas del BCRA", v: num(u[1] / 1000, 1), u: "mil M USD",
+      n: "Reservas del BCRA", v: num(u[1], 0), u: "M USD",
       d: (dif != null ? `<span class="${clase(dif)}">${dif > 0 ? "+" : ""}${num(dif, 0)} M</span> en 30 días · ` : "") + fechaDM(u[0]),
       spark: res.map((p) => p[1]), color: "#6bbaf3",
     });
